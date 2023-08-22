@@ -1,0 +1,61 @@
+version: "3"
+
+services:
+    db_rabbitmq:
+        image: mysql:8.0.33
+        platform: linux/x86_64
+        command: --default-authentication-plugin=mysql_native_password
+        volumes:
+            - "db_app_rabbitmq:/var/lib/mysql"
+            - ../.docker/mysql/init-db:/docker-entrypoint-initdb.d
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        ports:
+            - 3306:3306
+        networks:
+            - symfony_app_rabbitmq
+    php-fpm_rabbitmq:
+        build:
+            context: ./php
+            args:
+                TIMEZONE: ${TIMEZONE}
+        volumes:
+            - ../:/var/www/symfony:cached
+            - symfony_app_var_rabbitmq:/var/www/symfony/var
+            - symfony_app_vendor_rabbitmq:/var/www/symfony/vendor
+        networks:
+            - symfony_app_rabbitmq
+    nginx_rabbitmq:
+        build:
+            context: ./nginx
+        volumes:
+            - ../:/var/www/symfony:cached
+            - symfony_app_var_rabbitmq:/var/www/symfony/var
+            - symfony_app_vendor_rabbitmq:/var/www/symfony/vendor
+        ports:
+            - 80:80
+        networks:
+            - symfony_app_rabbitmq
+        env_file:
+            - .env.nginx
+    rabbitmq:
+        image: rabbitmq:3.7.7-management-alpine
+        restart: always
+        networks:
+            - symfony_app_rabbitmq
+        environment:
+            RABBITMQ_DEFAULT_USER: guest
+            RABBITMQ_DEFAULT_PASS: guest
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+volumes:
+    symfony_app_var_rabbitmq:
+    symfony_app_vendor_rabbitmq:
+    db_app_rabbitmq:
+
+networks:
+    symfony_app_rabbitmq:
